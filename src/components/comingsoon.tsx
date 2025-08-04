@@ -1,38 +1,29 @@
 "use client";
-import { useState, FormEvent } from "react";
+import { useState } from "react";
 import Image from "next/image";
-import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { FaInfoCircle } from "react-icons/fa";
+import { waitlistSchema, WaitlistFormData } from "@/schemas/waitlistSchema";
+import { useWaitlist } from "@/lib/queries/waitlist";
 import ThankYouModal from "./ThankYou";
 
-// Define validation schema
-const formSchema = z.object({
-  firstName: z.string().min(2, "First name must be at least 2 characters"),
-  lastName: z.string().min(2, "Last name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid email address"),
-  phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
-  personalityType: z.string().optional(),
-});
-
-// Type for form errors
-type FormErrors = {
-  [key: string]: string | undefined;
-};
-
 const ComingSoonPage = () => {
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phoneNumber: "",
-    personalityType: "",
-  });
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPersonalityInfo, setShowPersonalityInfo] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
 
-  // const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [showPersonalityInfo, setShowPersonalityInfo] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    setValue,
+    watch,
+  } = useForm<WaitlistFormData>({
+    resolver: zodResolver(waitlistSchema),
+  });
+
+  const { mutate: submitWaitlist, isPending: isSubmitting, error } = useWaitlist();
 
   // Define personality options
   const personalityOptions = [
@@ -44,96 +35,20 @@ const ComingSoonPage = () => {
     "Convenience Seeker",
   ];
 
-  // const handlePersonalitySelect = (option: string) => {
-  //   setFormData((prev) => ({ ...prev, personalityType: option }));
-  //   setIsDropdownOpen(false);
-  // };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-
-    // Clear error when field is edited
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
-    }
-  };
-
-  const validateForm = (): boolean => {
+  const onSubmit = async (data: WaitlistFormData) => {
     try {
-      formSchema.parse(formData);
-      setErrors({});
-      return true;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const newErrors: FormErrors = {};
-        error.errors.forEach((err) => {
-          const path = err.path[0];
-          newErrors[path] = err.message;
-        });
-        setErrors(newErrors);
-      }
-      return false;
-    }
-  };
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-
-    setIsSubmitting(true);
-
-    try {
-      // Simulate 5 second delay before making the API call
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      const response = await fetch("/api/waitlist", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      await submitWaitlist(data, {
+        onSuccess: () => {
+          setShowThankYou(true);
+          reset();
+          setShowPersonalityInfo(false);
         },
-        body: JSON.stringify({
-          ...formData,
-          timestamp: new Date().toISOString(),
-        }),
+        onError: (err) => {
+          console.error("Submission error:", err);
+        },
       });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        setFormData({
-          firstName: "",
-          lastName: "",
-          email: "",
-          phoneNumber: "",
-          personalityType: "",
-        });
-        setErrors({});
-        // setIsDropdownOpen(false);
-        setShowPersonalityInfo(false);
-        setShowThankYou(true);
-      } else {
-        // Handle validation errors from backend
-        if (result.errors && Array.isArray(result.errors)) {
-          const newErrors: FormErrors = {};
-          result.errors.forEach((error: { field: string; message: string }) => {
-            newErrors[error.field] = error.message;
-          });
-          setErrors(newErrors);
-          return;
-        }
-
-        throw new Error(result.message || "Failed to join waitlist");
-      }
     } catch (error) {
-      console.error("Error submitting form:", error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "There was an error joining the waitlist. Please try again.";
-      alert(errorMessage);
-    } finally {
-      setIsSubmitting(false);
+      console.error("Submission error:", error);
     }
   };
 
@@ -200,7 +115,7 @@ const ComingSoonPage = () => {
               GET NOTIFIED WHEN WE ARE LIVE!
             </h2>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit(onSubmit)}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label
@@ -212,18 +127,15 @@ const ComingSoonPage = () => {
                   <input
                     type="text"
                     id="firstName"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
+                    {...register("firstName")}
                     placeholder="Enter first name"
                     className={`w-full px-3 py-3 border ${
                       errors.firstName ? "border-red-500" : "border-gray-300"
                     } rounded-md focus:border-[#64961A] focus:outline-none`}
-                    required
                   />
                   {errors.firstName && (
                     <p className="mt-1 text-sm text-red-600">
-                      {errors.firstName}
+                      {errors.firstName.message}
                     </p>
                   )}
                 </div>
@@ -238,18 +150,15 @@ const ComingSoonPage = () => {
                   <input
                     type="text"
                     id="lastName"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleChange}
+                    {...register("lastName")}
                     placeholder="Enter last name"
                     className={`w-full px-3 py-3 border ${
                       errors.lastName ? "border-red-500" : "border-gray-300"
                     } rounded-md focus:border-[#64961A] focus:outline-none`}
-                    required
                   />
                   {errors.lastName && (
                     <p className="mt-1 text-sm text-red-600">
-                      {errors.lastName}
+                      {errors.lastName.message}
                     </p>
                   )}
                 </div>
@@ -264,17 +173,14 @@ const ComingSoonPage = () => {
                   <input
                     type="email"
                     id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
+                    {...register("email")}
                     placeholder="name@email.com"
                     className={`w-full px-3 py-3 border ${
                       errors.email ? "border-red-500" : "border-gray-300"
                     } rounded-md focus:border-[#64961A] focus:outline-none`}
-                    required
                   />
                   {errors.email && (
-                    <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                    <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
                   )}
                 </div>
 
@@ -288,18 +194,15 @@ const ComingSoonPage = () => {
                   <input
                     type="tel"
                     id="phoneNumber"
-                    name="phoneNumber"
-                    value={formData.phoneNumber}
-                    onChange={handleChange}
+                    {...register("phoneNumber")}
                     placeholder="Enter phone number"
                     className={`w-full px-3 py-3 border ${
                       errors.phoneNumber ? "border-red-500" : "border-gray-300"
                     } rounded-md focus:border-[#64961A] focus:outline-none`}
-                    required
                   />
                   {errors.phoneNumber && (
                     <p className="mt-1 text-sm text-red-600">
-                      {errors.phoneNumber}
+                      {errors.phoneNumber.message}
                     </p>
                   )}
                 </div>
@@ -327,13 +230,7 @@ const ComingSoonPage = () => {
                   )}
                   <div className="relative">
                     <select
-                      value={formData.personalityType}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          personalityType: e.target.value,
-                        }))
-                      }
+                      {...register("personalityType")}
                       className="w-full p-3 border border-gray-300 rounded-md bg-white text-left focus:outline-none focus:border-[#64961A] appearance-none pr-8"
                     >
                       <option value="">Please select</option>
@@ -353,6 +250,11 @@ const ComingSoonPage = () => {
                       />
                     </div>
                   </div>
+                  {errors.personalityType && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.personalityType.message}
+                    </p>
+                  )}
                 </div>
 
                 <button
@@ -363,6 +265,12 @@ const ComingSoonPage = () => {
                   {isSubmitting ? "Processing..." : "Notify Me"}
                 </button>
               </div>
+
+              {error && (
+                <p className="text-red-400 text-sm mt-1">
+                  {error.message || "Something went wrong."}
+                </p>
+              )}
             </form>
           </div>
         </div>

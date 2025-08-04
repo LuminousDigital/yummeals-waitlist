@@ -3,11 +3,12 @@ import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
+import QueryProvider from "./providers/QueryProvider"; // 👈 Import QueryProvider
 
 const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
 });
 
 const torusPro = localFont({
@@ -17,8 +18,15 @@ const torusPro = localFont({
 
 export const metadata: Metadata = {
   title: "Yummeals - Order Delicious Meals Online",
-  description: "Get fresh, restaurant-quality meals delivered fast. Browse our menu, order your favorites, and enjoy quick delivery from Yummeals - your neighborhood's top food delivery service.",
-  keywords: ["food delivery", "online ordering", "restaurant", "takeout", "meal delivery"],
+  description:
+    "Get fresh, restaurant-quality meals delivered fast. Browse our menu, order your favorites, and enjoy quick delivery from Yummeals - your neighborhood's top food delivery service.",
+  keywords: [
+    "food delivery",
+    "online ordering",
+    "restaurant",
+    "takeout",
+    "meal delivery",
+  ],
 };
 
 export default function RootLayout({
@@ -48,7 +56,11 @@ export default function RootLayout({
             style={{ display: "none", visibility: "hidden" }}
           ></iframe>
         </noscript>
-        {children}
+
+        {/* ✅ Wrap everything in QueryProvider */}
+        <QueryProvider>
+          {children}
+        </QueryProvider>
       </body>
     </html>
   );
