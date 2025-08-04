@@ -6,7 +6,6 @@ import { z } from 'zod';
 const DATA_DIR = path.join(process.cwd(), 'data');
 const FILE_PATH = path.join(DATA_DIR, 'waitlist.json');
 
-// Validation schema
 const waitlistSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters").max(50, "First name too long"),
   lastName: z.string().min(2, "Last name must be at least 2 characters").max(50, "Last name too long"),
@@ -23,7 +22,7 @@ interface WaitlistEntry {
   phoneNumber: string;
   personalityType?: string;
   timestamp: string;
-  id: number; // Changed from string to number
+  id: number;
 }
 
 async function ensureDataDir() {
@@ -40,7 +39,6 @@ async function readWaitlistData(): Promise<WaitlistEntry[]> {
     const fileData = await fs.readFile(FILE_PATH, 'utf8');
     return JSON.parse(fileData);
   } catch (err) {
-    // If file doesn't exist, return empty array
     if (err instanceof Error && 'code' in err && err.code === 'ENOENT') {
       return [];
     }
@@ -56,7 +54,6 @@ function sanitizeInput(input: string): string {
   return input.trim().replace(/[<>\"']/g, '');
 }
 
-// Modified to generate sequential IDs
 async function generateNextId(): Promise<number> {
   const existingData = await readWaitlistData();
   if (existingData.length === 0) {
@@ -69,7 +66,6 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // Validate the input
     const validationResult = waitlistSchema.safeParse(body);
     
     if (!validationResult.success) {
@@ -87,8 +83,7 @@ export async function POST(request: Request) {
     }
 
     const validatedData = validationResult.data;
-    
-    // Sanitize inputs
+
     const sanitizedData = {
       firstName: sanitizeInput(validatedData.firstName),
       lastName: sanitizeInput(validatedData.lastName),
@@ -98,15 +93,13 @@ export async function POST(request: Request) {
     };
 
     await ensureDataDir();
-    
-    // Read existing data
+
     const existingData = await readWaitlistData();
-    
-    // Create new entry with sequential ID
+ 
     const newEntry: WaitlistEntry = {
       ...sanitizedData,
       timestamp: new Date().toISOString(),
-      id: await generateNextId() // Now returns a number
+      id: await generateNextId()
     };
     
     const updatedData = [...existingData, newEntry];
@@ -146,7 +139,6 @@ export async function GET() {
     
     const data = await readWaitlistData();
     
-    // Return summary data (without sensitive info in production)
     const sanitizedData = data.map(entry => ({
       id: entry.id,
       firstName: entry.firstName,
